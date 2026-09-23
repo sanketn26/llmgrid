@@ -1,6 +1,6 @@
 # Development tooling shared by every package. Package runtime dependencies
 # live in packages/*/pyproject.toml.
-pytest>=8.2
+pytest>=9.1.1
 ruff>=0.6
 mypy>=1.11
 build>=1.2
