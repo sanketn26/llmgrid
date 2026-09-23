@@ -169,7 +169,7 @@ class ToolSpec:
 def render_tool_instructions(specs: Sequence[ToolSpec]) -> str:
     """Prompt part 3: how a no-native-tool model must emit a tool call.
 
-    The adapter appends this only when ``Capabilities.native_tools`` is false —
+    The adapter appends this only when ``ModelSpec.native_tools`` is false —
     a native model gets the declaration (``to_wire``) and an empty part 3.
     """
     catalogue = "\n".join(spec.format_instructions() for spec in specs)

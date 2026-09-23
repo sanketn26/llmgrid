@@ -1,8 +1,8 @@
 name: Integration
 
 # Live provider tests cost money and need credentials, so they never run on a
-# pull request. Trigger them by hand, or let the nightly run catch provider
-# wire-format drift.
+# pull request. No provider adapters exist yet (plan Phase 2); re-enable the
+# schedule once tests/live has tests.
 on:
   workflow_dispatch:
     inputs:
@@ -11,9 +11,7 @@ on:
         required: false
         default: ""
         type: choice
-        options: ["", anthropic, gemini, sarvam, openai]
-  schedule:
-    - cron: "0 3 * * 1" # Mondays, 03:00 UTC
+        options: ["", anthropic, openai]
 
 permissions:
   contents: read
@@ -37,18 +35,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            requirements-dev.txt
+            packages/*/pyproject.toml
 
       - name: Install
-        run: pip install -e '.[dev]'
+        run: make setup PYTHON=python
 
-      - name: Run integration tests
+      - name: Run live tests
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LLM_PORT_INTEGRATION_PROVIDER: ${{ inputs.provider }}
-        # Tests skip themselves when their credential is absent, so a partially
-        # configured repository still produces a useful run.
-        run: pytest tests/integration -m integration -ra
+          LLMGRID_LIVE_PROVIDER: ${{ inputs.provider }}
+        # Tests skip themselves when their credential is absent.
+        run: make live-test

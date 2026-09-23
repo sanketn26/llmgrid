@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llmgrid-rag"
+version = "0.1.0a1"
+description = "Retrieval-augmented generation for llmgrid"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Sanket Naik", email = "sanketn@gmail.com" }]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = [
+  "llmgrid-interfaces>=0.1.0a1,<0.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/sanketn26/llmgrid"
+Source = "https://github.com/sanketn26/llmgrid"
+Issues = "https://github.com/sanketn26/llmgrid/issues"
+
+[tool.hatch.build.targets.wheel]
+# `llmgrid` is a namespace package shared by every distribution: no llmgrid/__init__.py.
+packages = ["src/llmgrid"]

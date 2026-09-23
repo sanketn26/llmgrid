@@ -1,304 +1,84 @@
-# llm-port
+# llmgrid
 
-[![CI](https://github.com/sanketnaik/llm-port/actions/workflows/ci.yml/badge.svg)](https://github.com/sanketnaik/llm-port/actions/workflows/ci.yml)
+[![CI](https://github.com/sanketn26/llmgrid/actions/workflows/ci.yml/badge.svg)](https://github.com/sanketn26/llmgrid/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**Typed, provider-neutral chat and reliable tool calling for hosted and local LLMs.**
+**Typed, composable agent building blocks with explicit budgets, cancellation, and outcomes. No hidden loops, no silent fallbacks.**
 
-`llm-port` gives Python applications one contract for messages, tools, streaming, usage, and
-errors. Provider adapters handle wire-format differences, while the conformance layer recovers,
-validates, and repairs malformed tool calls before they reach your application.
+> **Status:** early alpha (`0.1.0a1`). The contracts and a bounded tool-calling agent work offline against a scripted model. There are no real provider adapters yet. APIs will change between `0.x` releases. The design and roadmap are in [docs/composable-agent-platform-plan.md](docs/composable-agent-platform-plan.md).
 
-> **Status:** alpha. The public surface described below is settled, but minor versions may still
-> change it.
+## Packages
 
-## Why llm-port?
+Each package is published on its own and imported from the shared `llmgrid` namespace. Install only what you need, or `pip install llmgrid` for all of them.
 
-- Use the same API with Anthropic, Gemini, Sarvam, OpenAI, Azure, Bedrock, Vertex AI,
-  Groq, OpenRouter, DeepSeek, Together, Fireworks, xAI, Mistral, and local servers
-  (Ollama, LM Studio, vLLM, llama.cpp, TGI).
-- Receive typed `Message`, `ToolCall`, `Usage`, and `StreamEvent` values.
-- Declare a tool once and reuse its schema for provider calls and validation.
-- Recover tool calls emitted as text by weak or local models.
-- Apply bounded corrective retries and constrained decoding when supported.
-- Normalize provider failures into a small exception hierarchy.
+| Distribution | Import | Contents | State |
+| --- | --- | --- | --- |
+| `llmgrid-interfaces` | `llmgrid.interfaces` | Messages, tool calls, `ChatModel`, `Tool`, `Step`, `RunContext`, errors. Standard library only | Prototype |
+| `llmgrid-network` | `llmgrid.network` | Model adapters. Today: `ScriptedModel` for offline use | Prototype |
+| `llmgrid-tools` | `llmgrid.tools` | Typed tool bindings and a registry | Prototype |
+| `llmgrid-loops` | `llmgrid.loops` | `SequenceStep`, `ModelStep`, bounded `ToolAgent` recipe | Prototype |
+| `llmgrid-context` | `llmgrid.context` | Context assembly and memory | Planned |
+| `llmgrid-rag` | `llmgrid.rag` | Retrieval-augmented generation | Planned |
+| `llmgrid` | — | Meta-package that installs all of the above | — |
 
-## Install
+Every package except `llmgrid-interfaces` depends only on `llmgrid-interfaces`. An architecture test enforces this.
 
-```bash
-pip install llm-port[openai]      # OpenAI, Azure, Groq, OpenRouter, DeepSeek, and every local server
-pip install llm-port[anthropic]   # Anthropic
-pip install llm-port[bedrock]     # AWS Bedrock
-pip install llm-port[all]         # every provider
-```
+## Example
 
-Python 3.12 or later is required. The core install depends only on `httpx`; each provider extra
-adds that provider's SDK. One extra often covers several providers — `openai` serves every
-service that speaks the OpenAI wire format, including Ollama, LM Studio, vLLM, llama.cpp, and TGI.
-
-## Quick start
+[examples/tool_agent/demo.py](examples/tool_agent/demo.py) runs a scripted model that calls an `add` tool:
 
 ```python
-from llm_port import LLMClient, LLMConfig, Provider
-
-client = LLMClient(
-    LLMConfig(
-        provider=Provider.ANTHROPIC,
-        model_name="your-model-name",
-    )
-)
-
-reply = client.chat([
-    {"role": "user", "content": "Name three prime numbers."},
-])
-
-print(reply.content)
-print(reply.usage.input_tokens, reply.usage.output_tokens)
+agent = ToolAgent(make_model(), make_registry())
+workflow = SequenceStep[str, AgentResult, str](agent, ExtractText())
+context = RunContext("demo-1", Budget(max_model_calls=2, max_tool_calls=1))
+print(await workflow.run("What is 2 + 3?", context=context))  # The answer is 5.
 ```
-
-The API key is read from the provider's environment variable when `api_key` is not passed
-explicitly. Use an OpenAI-compatible local endpoint by changing the configuration:
-
-```python
-client = LLMClient(
-    LLMConfig(
-        provider=Provider.OLLAMA,
-        model_name="your-local-model",
-        base_url="http://localhost:11434/v1",
-    )
-)
-```
-
-## Providers
-
-| Provider      | `Provider` member       | Default base URL                                   | Credential            |
-| ------------- | ----------------------- | -------------------------------------------------- | --------------------- |
-| Anthropic     | `Provider.ANTHROPIC`    | `https://api.anthropic.com/v1`                       | `ANTHROPIC_API_KEY`   |
-| Google Gemini | `Provider.GEMINI`       | `https://generativelanguage.googleapis.com/v1beta`   | `GEMINI_API_KEY`      |
-| Sarvam        | `Provider.SARVAM`       | `https://api.sarvam.ai/v1`                           | `SARVAM_API_KEY`      |
-| OpenAI        | `Provider.OPENAI`       | `https://api.openai.com/v1`                          | `OPENAI_API_KEY`      |
-| Azure OpenAI  | `Provider.AZURE_OPENAI` | none — `base_url` required                           | `AZURE_OPENAI_API_KEY`|
-| Groq          | `Provider.GROQ`         | `https://api.groq.com/openai/v1`                     | `GROQ_API_KEY`        |
-| OpenRouter    | `Provider.OPENROUTER`   | `https://openrouter.ai/api/v1`                       | `OPENROUTER_API_KEY`  |
-| DeepSeek      | `Provider.DEEPSEEK`     | `https://api.deepseek.com/v1`                        | `DEEPSEEK_API_KEY`    |
-| Together      | `Provider.TOGETHER`     | `https://api.together.xyz/v1`                        | `TOGETHER_API_KEY`    |
-| Fireworks     | `Provider.FIREWORKS`    | `https://api.fireworks.ai/inference/v1`              | `FIREWORKS_API_KEY`   |
-| xAI           | `Provider.XAI`          | `https://api.x.ai/v1`                                | `XAI_API_KEY`         |
-| Mistral       | `Provider.MISTRAL`      | `https://api.mistral.ai/v1`                          | `MISTRAL_API_KEY`     |
-| AWS Bedrock   | `Provider.BEDROCK`      | none — `base_url` required                           | AWS credential chain  |
-| Vertex AI     | `Provider.VERTEX`       | none — `base_url` required                           | Google ADC            |
-| Ollama        | `Provider.OLLAMA`       | `http://localhost:11434/v1`                          | not required          |
-| LM Studio     | `Provider.LMSTUDIO`     | `http://localhost:1234/v1`                           | not required          |
-| vLLM          | `Provider.VLLM`         | `http://localhost:8000/v1`                           | not required          |
-| llama.cpp     | `Provider.LLAMACPP`     | `http://localhost:8080/v1`                           | not required          |
-| TGI           | `Provider.TGI`          | `http://localhost:8080/v1`                           | not required          |
-
-Azure OpenAI, Bedrock, and Vertex AI have account- or region-specific endpoints, so `base_url`
-is mandatory for them; `resolved_base_url` raises `ConfigurationError` with the expected shape
-when it is missing. Bedrock and Vertex AI take no API key — their adapters resolve credentials
-through the AWS credential chain and Google Application Default Credentials respectively.
-
-Every default is overridable through `base_url` and `api_key`.
-
-## Tool calling
-
-Declare a tool once. The same `ToolSpec` produces each provider's wire format and drives
-conformance validation.
-
-```python
-from llm_port import ToolSpec
-
-read_file = ToolSpec.from_function_dict({
-    "type": "function",
-    "function": {
-        "name": "read_file",
-        "description": "Read a UTF-8 text file.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-            },
-            "required": ["path"],
-        },
-    },
-})
-
-reply = client.chat(
-    [{"role": "user", "content": "Read README.md."}],
-    tools=[read_file],
-)
-
-for call in reply.tool_calls:
-    print(call.id, call.name, call.arguments)
-```
-
-A spec can also be derived from a function's signature and docstring:
-
-```python
-def read_file(path: str, encoding: str = "utf-8") -> str:
-    """Read a UTF-8 text file."""
-    ...
-
-read_file_spec = ToolSpec.from_callable(read_file)
-```
-
-`llm-port` validates tool-call structure but does not execute tools. Authorization, execution,
-and semantic validation remain the application's responsibility.
-
-### Returning results
-
-Feed results back with a tool message keyed by the call id, then call again:
-
-```python
-from llm_port import Message
-
-messages = [Message.user("Read README.md.")]
-reply = client.chat(messages, tools=[read_file_spec])
-
-messages.append(reply)
-for call in reply.tool_calls:
-    output = my_dispatch_table[call.name](**call.arguments)  # your code, your authorization
-    messages.append(Message.tool(call.id, output))
-
-final = client.chat(messages, tools=[read_file_spec])
-```
-
-## Tool-call conformance
-
-Weak and locally hosted models frequently emit tool calls as prose, fenced JSON, or
-pseudo-XML rather than in the provider's structured field. The conformance layer sits between
-the adapter and your application and applies, in order:
-
-1. **Recovery** — parse tool-shaped text into candidate calls when the provider returned none
-   structurally. Recovered calls carry `origin="recovered"` so you can treat them differently.
-2. **Validation** — check arguments against the declared schema.
-3. **Repair** — coerce obvious mismatches (a JSON string where an object was declared, a numeric
-   string where a number was declared), then spend up to `tool_repair_attempts` corrective round
-   trips before raising `ToolCallValidationError`.
-
-Each stage is configurable:
-
-```python
-LLMConfig(
-    provider=Provider.OLLAMA,
-    model_name="your-local-model",
-    recover_text_tool_calls=True,   # parse tool calls out of plain text
-    strict_tools=True,              # reject calls that violate their schema
-    tool_repair_attempts=1,         # bounded corrective retries
-    constrained_decoding=False,     # enforce schemas at decode time where supported
-)
-```
-
-## Streaming
-
-```python
-for event in client.chat_stream(messages, tools=[read_file]):
-    if event.kind == "content":
-        print(event.text, end="", flush=True)
-    elif event.kind == "tool_calls":
-        pending_calls = event.tool_calls
-    elif event.kind == "usage":
-        usage = event.usage
-    elif event.kind == "done":
-        finish_reason = event.finish_reason
-```
-
-Tool calls are streamed by providers as argument fragments. `llm-port` accumulates those and
-emits a single `tool_calls` event holding fully decoded arguments, so your code never parses a
-partial JSON string.
-
-## Errors
-
-Every provider and transport failure is normalized onto one hierarchy rooted at `LLMPortError`:
-
-```
-LLMPortError
-├── ConfigurationError        unusable configuration, missing credential
-├── TransportError            no usable response
-│   └── TimeoutError
-├── ProviderError             the provider returned an error (carries status_code, body)
-│   ├── AuthenticationError   401
-│   ├── PermissionDeniedError 403
-│   ├── NotFoundError         404 (unknown model or endpoint)
-│   ├── RateLimitError        429 (carries retry_after)
-│   ├── ServerError           5xx
-│   ├── ContextLengthError    request exceeded the context window
-│   └── ContentFilterError    provider refused on safety grounds
-├── ResponseFormatError       response could not be decoded into port types
-└── ToolCallError
-    ├── ToolCallRecoveryError    tool-shaped text that could not be recovered
-    └── ToolCallValidationError  recovered call violated its schema
-```
-
-Transport failures, `429`, and `5xx` are retried under the configured `RetryPolicy` with
-exponential backoff and jitter; everything else is raised immediately.
-
-```python
-from llm_port import LLMPortError, RateLimitError
-
-try:
-    reply = client.chat(messages)
-except RateLimitError as exc:
-    wait_for(exc.retry_after)
-except LLMPortError as exc:
-    log.error("llm call failed", exc_info=exc)
-```
-
-## Scope
-
-`llm-port` owns provider conversion, transport behavior, streaming, tool-call conformance, and
-provider-neutral errors. It does not provide an agent loop, tool execution, conversation storage,
-or automatic provider routing.
 
 ## Development
 
+Requires Python 3.12 or later. One virtualenv holds every package in editable mode.
+
 ```bash
-make setup            # create a venv at .venv and install llm-port with dev extras
-make test             # run the offline unit test suite with coverage
-make integration-test # run live provider tests (requires credentials)
-make lint             # ruff check and format --check
-make format           # apply formatting and autofixable lint rules
-make typecheck        # mypy, strict mode
-make check            # lint, typecheck, and test — what CI runs
-make build            # build the sdist and wheel into dist/
-make cleanup          # remove the venv, build output, and caches
+make setup          # create .venv and install all packages
+make check          # lint, strict type check, and all offline tests
+make demo           # run the example
+make packages       # list packages, distribution names, and versions
 ```
 
-`make help` lists every target. The default test suite is offline: unit tests stub the transport
-and never open a socket. Live provider tests are opt-in — they live in `tests/integration`, carry
-the `integration` marker, and skip themselves when the relevant credential is absent.
+Work on one package with `make <target>-<pkg>`, where `<pkg>` is `interfaces`, `network`, `tools`, `context`, `rag`, `loops`, or `llmgrid`:
 
-### Continuous integration
-
-`.github/workflows/ci.yml` runs on every push and pull request to `main`: ruff and mypy, the
-offline unit suite across Python 3.12 and 3.13 on Linux plus 3.12 on macOS, and a distribution
-build that installs the wheel into a clean virtualenv and imports it. It mirrors `make check`,
-so a green `make check` locally should stay green in CI.
-
-Live provider tests run from `.github/workflows/integration.yml`, which is manual
-(`workflow_dispatch`) and weekly only. It reads provider credentials from repository secrets
-named after each provider's environment variable, gated behind an `integration` environment.
-
-### Layout
-
-```
-src/llm_port/
-├── client.py        LLMClient: the public entry point
-├── config.py        Provider, LLMConfig, RetryPolicy
-├── types.py         Message, ToolCall, Usage, StreamEvent
-├── tools.py         ToolSpec and its per-provider renderings
-├── errors.py        the exception hierarchy
-├── conformance/     tool-call recovery, validation, and repair
-└── providers/       one adapter per provider wire format
+```bash
+make test-tools         # that package's tests
+make lint-tools         # ruff
+make typecheck-tools    # mypy --strict
+make check-tools        # all three
+make build-tools        # sdist and wheel in packages/tools/dist, checked with twine
 ```
 
-## Contributing
+`make build` builds every package, and `make smoke` installs the built wheels into a clean virtualenv and imports them.
 
-Issues and pull requests are welcome. Please run `make check` before opening a PR; new provider
-adapters should ship with offline tests covering request construction, response parsing, streaming,
-and error mapping.
+### Publishing
+
+```bash
+make publish-interfaces                      # to PyPI
+make publish-interfaces REPOSITORY=testpypi  # to TestPyPI
+```
+
+`publish-<pkg>` refuses to run unless you are on `main` with a clean working tree, then runs the package's checks, builds it, and uploads with twine. Twine prompts for a PyPI API token unless `TWINE_PASSWORD` is set. Publish `interfaces` before the packages that depend on it, and the `llmgrid` meta-package last.
+
+## Repository layout
+
+```text
+packages/<pkg>/          one distribution each: pyproject.toml, src/llmgrid/<pkg>/, tests/
+tests/integration/       offline flows across packages
+tests/architecture/      dependency rules between packages
+tests/typing/            compositions that must fail type checking
+examples/                runnable examples
+legacy/llm_port/         the pre-pivot llm-port code, kept for reference only
+docs/                    design plan and decisions
+```
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+MIT. See [LICENSE](LICENSE).
