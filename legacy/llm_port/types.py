@@ -7,13 +7,13 @@ from enum import StrEnum
 from typing import Any, Literal, Self
 
 __all__ = [
-    "Role",
     "FinishReason",
+    "Message",
+    "Role",
+    "StreamEvent",
     "ToolCall",
     "ToolResult",
-    "Message",
     "Usage",
-    "StreamEvent",
 ]
 
 
@@ -29,11 +29,11 @@ class Role(StrEnum):
 class FinishReason(StrEnum):
     """Why the model stopped generating."""
 
-    STOP = "stop"
-    LENGTH = "length"
-    TOOL_CALLS = "tool_calls"
-    CONTENT_FILTER = "content_filter"
-    ERROR = "error"
+    STOP = "stop" # Normal completion
+    LENGTH = "length" # Stopped due to reaching max length
+    TOOL_CALLS = "tool_calls" # Stopped to make a tool call
+    CONTENT_FILTER = "content_filter" # Stopped by content filter
+    ERROR = "error" # Stopped due to an error
 
 
 @dataclass(frozen=True, slots=True)

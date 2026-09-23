@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import inspect
 import types as pytypes
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Self, Union, get_args, get_origin, get_type_hints
+from typing import Any, Self, Union, get_args, get_origin, get_type_hints
 
 from .errors import ConfigurationError
 

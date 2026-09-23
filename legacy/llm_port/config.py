@@ -13,38 +13,110 @@ __all__ = ["Provider", "LLMConfig", "RetryPolicy"]
 
 
 class Provider(StrEnum):
-    """Supported provider adapters."""
+    """Supported provider adapters.
 
+    Members fall into four groups: providers with a native wire format and
+    vendor SDK, hosted services that speak the OpenAI format, cloud platforms
+    that require their own credential chain, and locally hosted servers.
+    """
+
+    # Native wire formats.
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
     SARVAM = "sarvam"
+
+    # OpenAI wire format, hosted.
     OPENAI = "openai"
+    AZURE_OPENAI = "azure_openai"
+    GROQ = "groq"
+    OPENROUTER = "openrouter"
+    DEEPSEEK = "deepseek"
+    TOGETHER = "together"
+    FIREWORKS = "fireworks"
+    XAI = "xai"
+    MISTRAL = "mistral"
+
+    # Cloud platforms with their own credential chain.
+    BEDROCK = "bedrock"
+    VERTEX = "vertex"
+
+    # Locally hosted servers, OpenAI wire format.
     OLLAMA = "ollama"
     LMSTUDIO = "lmstudio"
+    VLLM = "vllm"
+    LLAMACPP = "llamacpp"
+    TGI = "tgi"
 
 
 #: Default endpoint per provider. ``LLMConfig.base_url`` overrides these.
+#: Providers whose endpoint is account- or region-specific are absent here and
+#: listed in :data:`ENDPOINT_REQUIRED` instead.
 DEFAULT_BASE_URLS: dict[Provider, str] = {
     Provider.ANTHROPIC: "https://api.anthropic.com/v1",
     Provider.GEMINI: "https://generativelanguage.googleapis.com/v1beta",
     Provider.SARVAM: "https://api.sarvam.ai/v1",
     Provider.OPENAI: "https://api.openai.com/v1",
+    Provider.GROQ: "https://api.groq.com/openai/v1",
+    Provider.OPENROUTER: "https://openrouter.ai/api/v1",
+    Provider.DEEPSEEK: "https://api.deepseek.com/v1",
+    Provider.TOGETHER: "https://api.together.xyz/v1",
+    Provider.FIREWORKS: "https://api.fireworks.ai/inference/v1",
+    Provider.XAI: "https://api.x.ai/v1",
+    Provider.MISTRAL: "https://api.mistral.ai/v1",
     Provider.OLLAMA: "http://localhost:11434/v1",
     Provider.LMSTUDIO: "http://localhost:1234/v1",
+    Provider.VLLM: "http://localhost:8000/v1",
+    Provider.LLAMACPP: "http://localhost:8080/v1",
+    Provider.TGI: "http://localhost:8080/v1",
 }
 
-#: Environment variable consulted for each provider's credential.
+#: Providers with no fixed endpoint. ``base_url`` is mandatory, and the value
+#: here describes the shape the caller must supply.
+ENDPOINT_REQUIRED: dict[Provider, str] = {
+    Provider.AZURE_OPENAI: "https://<resource>.openai.azure.com/openai",
+    Provider.BEDROCK: "https://bedrock-runtime.<region>.amazonaws.com",
+    Provider.VERTEX: "https://<location>-aiplatform.googleapis.com/v1",
+}
+
+#: Environment variable consulted for each provider's credential. Providers
+#: that resolve credentials elsewhere are absent.
 DEFAULT_API_KEY_ENV: dict[Provider, str] = {
     Provider.ANTHROPIC: "ANTHROPIC_API_KEY",
     Provider.GEMINI: "GEMINI_API_KEY",
     Provider.SARVAM: "SARVAM_API_KEY",
     Provider.OPENAI: "OPENAI_API_KEY",
+    Provider.AZURE_OPENAI: "AZURE_OPENAI_API_KEY",
+    Provider.GROQ: "GROQ_API_KEY",
+    Provider.OPENROUTER: "OPENROUTER_API_KEY",
+    Provider.DEEPSEEK: "DEEPSEEK_API_KEY",
+    Provider.TOGETHER: "TOGETHER_API_KEY",
+    Provider.FIREWORKS: "FIREWORKS_API_KEY",
+    Provider.XAI: "XAI_API_KEY",
+    Provider.MISTRAL: "MISTRAL_API_KEY",
     Provider.OLLAMA: "OLLAMA_API_KEY",
     Provider.LMSTUDIO: "LMSTUDIO_API_KEY",
+    Provider.VLLM: "VLLM_API_KEY",
+    Provider.LLAMACPP: "LLAMACPP_API_KEY",
+    Provider.TGI: "TGI_API_KEY",
 }
 
 #: Providers that run locally and therefore need no credential.
-LOCAL_PROVIDERS = frozenset({Provider.OLLAMA, Provider.LMSTUDIO})
+LOCAL_PROVIDERS = frozenset(
+    {
+        Provider.OLLAMA,
+        Provider.LMSTUDIO,
+        Provider.VLLM,
+        Provider.LLAMACPP,
+        Provider.TGI,
+    }
+)
+
+#: Providers whose credentials come from a platform chain (AWS SigV4, Google
+#: ADC) rather than an API key this library reads.
+CREDENTIAL_CHAIN_PROVIDERS = frozenset({Provider.BEDROCK, Provider.VERTEX})
+
+#: Providers for which a missing API key is not an error.
+KEYLESS_PROVIDERS = LOCAL_PROVIDERS | CREDENTIAL_CHAIN_PROVIDERS
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +152,8 @@ class LLMConfig:
         provider: Which adapter to use.
         model_name: Provider-specific model identifier.
         api_key: Credential. Falls back to the provider's environment variable.
-        base_url: Endpoint override, required for non-default local ports.
+        base_url: Endpoint override. Required for the providers listed in
+            :data:`ENDPOINT_REQUIRED` and for non-default local ports.
         timeout: Per-request timeout in seconds.
         max_tokens: Cap on generated tokens.
         temperature: Sampling temperature, or ``None`` for the provider default.
@@ -128,18 +201,32 @@ class LLMConfig:
 
     @property
     def resolved_base_url(self) -> str:
-        return (self.base_url or DEFAULT_BASE_URLS[self.provider]).rstrip("/")
+        """Return the endpoint, falling back to the provider's default.
+
+        Raises:
+            ConfigurationError: The provider has no fixed endpoint and no
+                ``base_url`` was supplied.
+        """
+        base = self.base_url or DEFAULT_BASE_URLS.get(self.provider)
+        if not base:
+            raise ConfigurationError(
+                f"{self.provider} has no fixed endpoint: pass base_url="
+                f"{ENDPOINT_REQUIRED[self.provider]!r}"
+            )
+        return base.rstrip("/")
 
     def resolve_api_key(self) -> str | None:
         """Return the credential, reading the environment when none was given.
 
-        Local providers may legitimately have no credential; hosted providers
-        raise :class:`ConfigurationError` when none can be found.
+        Local providers may legitimately have no credential, and platform
+        providers resolve theirs through AWS or Google credential chains the
+        adapter drives. Every other provider raises
+        :class:`ConfigurationError` when no credential can be found.
         """
-        key = self.api_key or os.environ.get(DEFAULT_API_KEY_ENV[self.provider])
-        if not key and self.provider not in LOCAL_PROVIDERS:
+        env_var = DEFAULT_API_KEY_ENV.get(self.provider)
+        key = self.api_key or (os.environ.get(env_var) if env_var else None)
+        if not key and self.provider not in KEYLESS_PROVIDERS:
             raise ConfigurationError(
-                f"no API key for {self.provider}: pass api_key= or set "
-                f"{DEFAULT_API_KEY_ENV[self.provider]}"
+                f"no API key for {self.provider}: pass api_key= or set {env_var}"
             )
         return key
