@@ -123,7 +123,7 @@ publish-%: pkg-exists-% $(STAMP) ## Check and publish one package (REPOSITORY=py
 		echo "Refusing to publish with uncommitted changes."; exit 1; fi
 	@if [ "$*" != "llmgrid" ]; then $(MAKE) --no-print-directory check-$*; fi
 	$(MAKE) --no-print-directory build-$*
-	$(BIN)/twine upload --repository $(REPOSITORY) packages/$*/dist/*
+	$(BIN)/twine upload --verbose --skip-existing --repository $(REPOSITORY) packages/$*/dist/*
 
 cleanup: ## Remove the virtualenv, build output, and caches
 	rm -rf $(VENV) .smoke build .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov
