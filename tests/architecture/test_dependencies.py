@@ -1,4 +1,4 @@
-"""Enforce the package dependency rules from docs/composable-agent-platform-plan.md.
+"""Enforce the package dependency rules from docs/plan/03-packages.md.
 
 - interfaces imports only the standard library.
 - Every other package imports only the standard library, llmgrid.interfaces, and itself.
