@@ -323,4 +323,4 @@ status query exists. A new action requires a new operation ID and a new approval
 - [ ] Stale approvals and stale saves fail.
 - [ ] Crash after external dispatch yields unknown and never sends the action again.
 
-Next: [Phase 7](phase-7-release.md).
+Next: [Phase 7](phase-7-examples.md).

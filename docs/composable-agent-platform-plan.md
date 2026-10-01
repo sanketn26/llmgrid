@@ -18,7 +18,8 @@ its future APIs into the library.
 | [4](plan/phase-4-composition.md) | Retrieval, context, review, MCP, artifacts, experiments, critic, and tree search |
 | [5](plan/phase-5-streaming.md) | Stream assembly, bounded parallel steps, and telemetry |
 | [6](plan/phase-6-recovery.md) | Approval, durable checkpoints, and uncertain-action recovery |
-| [7](plan/phase-7-release.md) | Verify the guide, run checks, and package the implementation |
+| [7](plan/phase-7-examples.md) | Runnable showcases: coding, research, improvement, approval, providers, parallel work, and replay |
+| [8](plan/phase-8-release.md) | Verify the guide, run checks, and package the implementation |
 
 ## How to use it
 

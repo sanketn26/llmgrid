@@ -1,4 +1,4 @@
-# Phase 7: verify, package, and release
+# Phase 8: verify, package, and release
 
 [All phases](../composable-agent-platform-plan.md)
 
@@ -16,7 +16,8 @@
 
 The repository includes [check_implementation_guide.py](../../tools/check_implementation_guide.py).
 It copies the existing package source into a temporary directory, applies the file
-blocks from each phase in order, and runs that phase's offline example. It does not
+blocks from each phase in order, and runs that phase's offline example. Phase 7 also loads the linked
+`example-*.md` guides and runs every showcase. It does not
 modify your production source or contact providers.
 
 ```bash

@@ -14,7 +14,7 @@ FILES = re.compile(r"^### `([^`]+\.py)`\n.*?^```python\n(.*?)^```", re.M | re.S)
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--through", type=int, choices=range(1, 7), default=6)
+    parser.add_argument("--through", type=int, choices=range(1, 8), default=7)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     with TemporaryDirectory(prefix="llmgrid-guide-") as temporary:
@@ -29,28 +29,33 @@ def main() -> None:
             number = int(phase.name.split("-")[1])
             if not 1 <= number <= args.through:
                 continue
-            for filename, code in FILES.findall(phase.read_text()):
-                path = Path(filename)
-                if path.parts[:1] == ("packages",):
-                    path = Path(*path.parts[3:])
-                if path.is_absolute() or ".." in path.parts:
-                    raise ValueError("Invalid documented file path")
-                target = destination / path
-                target.parent.mkdir(parents=True, exist_ok=True)
-                compile(code, filename, "exec")
-                target.write_text(code)
+            sources = [phase]
+            if number == 7:
+                sources.extend(sorted((root / "docs/plan").glob("example-*.md")))
+            showcases: list[Path] = []
+            for source in sources:
+                for filename, code in FILES.findall(source.read_text()):
+                    path = Path(filename)
+                    if path.parts[:1] == ("packages",):
+                        path = Path(*path.parts[3:])
+                    if path.is_absolute() or ".." in path.parts:
+                        raise ValueError("Invalid documented file path")
+                    target = destination / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    compile(code, filename, "exec")
+                    target.write_text(code)
+                    if path.name.startswith("showcase_"):
+                        showcases.append(target)
             environment = dict(os.environ, PYTHONPATH=str(destination))
             # -B avoids __pycache__ reuse between successive phase replacements.
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-B",
-                    str(destination / f"examples/implementation/phase{number}.py"),
-                ],
-                cwd=destination,
-                env=environment,
-                check=True,
-            )
+            examples = [destination / f"examples/implementation/phase{number}.py", *showcases]
+            for example in examples:
+                subprocess.run(
+                    [sys.executable, "-B", str(example)],
+                    cwd=destination,
+                    env=environment,
+                    check=True,
+                )
     print("All selected phase examples passed")
 
 
