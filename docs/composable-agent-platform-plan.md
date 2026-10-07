@@ -16,10 +16,15 @@ its future APIs into the library.
 | [2](plan/phase-2-providers.md) | All five adapters, serializers, continuation state, and client lifecycles |
 | [3](plan/phase-3-tool-agent.md) | Verified tool agent, outcomes, stopping, recording, and replay |
 | [4](plan/phase-4-composition.md) | Retrieval, context, review, MCP, artifacts, experiments, critic, and tree search |
+| [4+](plan/phase-4-safety-patterns.md) | Addendum: guardrails, errands, planner, refiners, resampling, and routers |
 | [5](plan/phase-5-streaming.md) | Stream assembly, bounded parallel steps, and telemetry |
 | [6](plan/phase-6-recovery.md) | Approval, durable checkpoints, and uncertain-action recovery |
 | [7](plan/phase-7-examples.md) | Runnable showcases: coding, research, improvement, approval, providers, parallel work, and replay |
 | [8](plan/phase-8-release.md) | Verify the guide, run checks, and package the implementation |
+
+Design notes for these capabilities, and for self-improving agents (the user's ask as the
+invariant, the agent's policy as the variable), are in
+[capabilities-guardrails-errands-routing.md](plan/capabilities-guardrails-errands-routing.md).
 
 ## How to use it
 
@@ -48,6 +53,7 @@ You can verify the file blocks now, in a temporary checkout:
 - Other packages import interfaces and their own package, not sibling packages.
 - Application code creates clients/services and injects them into steps.
 - Leaf dispatch charges calls before execution and preserves cancellation.
+- Guardrail denials, routing failures, and exhausted resampling raise distinct errors; no fallback is implicit.
 - Completion, partial results, expected provider failures, and suspension stay distinct.
 
 ## Adjustments

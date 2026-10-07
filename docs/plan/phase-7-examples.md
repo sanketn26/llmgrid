@@ -27,6 +27,7 @@ all these guides and executes every showcase after the basic coding example.
 | [Approval and recovery](example-approval.md) | Publish once after approval and database reopening | Durable action state, usage restore, uncertain outcomes |
 | [Provider portability](example-providers.md) | Same verified workflow through five adapters | Provider-shaped fixtures, normalization, shared verification |
 | [Parallel investigation](example-parallel.md) | Three cited findings, streamed final report | Bounded workers, child contexts, shared budgets, SSE assembly |
+| [Guarded routing](example-safe-router.md) | Injection blocked, empty reply resampled, compound task decomposed | Guardrails, resampling, errands, routing |
 | [Failure replay](example-replay.md) | Inspect and reproduce a no-progress coding run | Model/tool capture, exact replay, independent verification |
 
 Implement the basic coding support file first, then the showcase files from each
