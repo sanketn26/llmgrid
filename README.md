@@ -35,6 +35,10 @@ context = RunContext("demo-1", Budget(max_model_calls=2, max_tool_calls=1))
 print(await workflow.run("What is 2 + 3?", context=context))  # The answer is 5.
 ```
 
+## Planned capabilities
+
+The design guide includes reference implementations, not yet in the packages, of guardrails, errands (decompose and recompose), a re-planning planner, refiners (including a Doubting Refiner), resampling, and routers. See [docs/plan/phase-4-safety-patterns.md](docs/plan/phase-4-safety-patterns.md), the design notes in [docs/plan/capabilities-guardrails-errands-routing.md](docs/plan/capabilities-guardrails-errands-routing.md), and the runnable [example](docs/plan/example-safe-router.md). Self-improving agents are designed but have no reference code yet.
+
 ## Development
 
 Requires Python 3.12 or later. One virtualenv holds every package in editable mode.
