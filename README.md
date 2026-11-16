@@ -37,7 +37,7 @@ print(await workflow.run("What is 2 + 3?", context=context))  # The answer is 5.
 
 ## Planned capabilities
 
-The design guide includes reference implementations, not yet in the packages, of guardrails, errands (decompose and recompose), a re-planning planner, refiners (including a Doubting Refiner), resampling, and routers. See [docs/plan/phase-4-safety-patterns.md](docs/plan/phase-4-safety-patterns.md), the design notes in [docs/plan/capabilities-guardrails-errands-routing.md](docs/plan/capabilities-guardrails-errands-routing.md), and the runnable [example](docs/plan/example-safe-router.md). Self-improving agents are designed but have no reference code yet.
+The implementation guide is a sequence of end-to-end features, with a unit test for each one. Start at [docs/task.md](docs/task.md) and [docs/composable-agent-platform-plan.md](docs/composable-agent-platform-plan.md). Guardrails, errands, resampling, and routers are features 05 through 08. Design notes stay in [docs/plan/capabilities-guardrails-errands-routing.md](docs/plan/capabilities-guardrails-errands-routing.md), and [docs/plan/example-safe-router.md](docs/plan/example-safe-router.md) is a checklist for that finished composition. Self-improving agents are designed but have no reference code yet.
 
 ## Development
 

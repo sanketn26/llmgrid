@@ -1,63 +1,56 @@
+"""Check that the feature guides stay contracts, not reference implementations.
+
+Each guide in docs/features must have Expects, Unit tests, and Acceptance.
+Features 01-15 must contain a unit-test block. Every Python fence in a
+feature guide must be one of those tests, and those tests must compile.
+Showcase files in docs/plan must not carry a pasted program. This does not
+implement a feature and it does not run the feature tests.
+"""
+
 from __future__ import annotations
 
-import argparse
-import os
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
-FILES = re.compile(r"^### `([^`]+\.py)`\n.*?^```python\n(.*?)^```", re.M | re.S)
+BLOCK = re.compile(r"^### `([^`]+)`\n\n.*?\n\n```python\n(.*?)```", re.M | re.S)
+PYTHON = re.compile(r"^```python\n.*?^```", re.M | re.S)
+REQUIRED = ("## Expects", "## Unit tests", "## Acceptance")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--through", type=int, choices=range(1, 8), default=7)
-    args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    with TemporaryDirectory(prefix="llmgrid-guide-") as temporary:
-        destination = Path(temporary)
-        for package in ("interfaces", "network", "tools", "loops", "context", "rag"):
-            shutil.copytree(
-                root / f"packages/{package}/src/llmgrid/{package}",
-                destination / f"llmgrid/{package}",
-            )
-        phases = sorted((root / "docs/plan").glob("phase-*.md"))
-        for phase in phases:
-            number = int(phase.name.split("-")[1])
-            if not 1 <= number <= args.through:
-                continue
-            sources = [phase]
-            if number == 7:
-                sources.extend(sorted((root / "docs/plan").glob("example-*.md")))
-            showcases: list[Path] = []
-            for source in sources:
-                for filename, code in FILES.findall(source.read_text()):
-                    path = Path(filename)
-                    if path.parts[:1] == ("packages",):
-                        path = Path(*path.parts[3:])
-                    if path.is_absolute() or ".." in path.parts:
-                        raise ValueError("Invalid documented file path")
-                    target = destination / path
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    compile(code, filename, "exec")
-                    target.write_text(code)
-                    if path.name.startswith("showcase_"):
-                        showcases.append(target)
-            environment = dict(os.environ, PYTHONPATH=str(destination))
-            # -B avoids __pycache__ reuse between successive phase replacements.
-            examples = [destination / f"examples/implementation/phase{number}.py", *showcases]
-            for example in examples:
-                subprocess.run(
-                    [sys.executable, "-B", str(example)],
-                    cwd=destination,
-                    env=environment,
-                    check=True,
-                )
-    print("All selected phase examples passed")
+    features = sorted((root / "docs/features").glob("[0-9][0-9]-*.md"))
+    if len(features) != 16:
+        raise SystemExit(f"Expected 16 feature guides, found {len(features)}")
+    for feature in features:
+        text = feature.read_text()
+        missing = [heading for heading in REQUIRED if heading not in text]
+        if missing:
+            raise SystemExit(f"{feature.name} is missing {', '.join(missing)}")
+        if "does not include their bodies" not in text and not feature.name.startswith("00"):
+            raise SystemExit(f"{feature.name} does not say the implementation bodies are absent")
+        blocks = BLOCK.findall(text)
+        if not feature.name.startswith("00") and not blocks:
+            raise SystemExit(f"{feature.name} has no unit test")
+        for filename, code in blocks:
+            allowed = "/tests/test_" in filename or filename.startswith("tests/")
+            if not allowed:
+                raise SystemExit(f"{feature.name} still contains an implementation: {filename}")
+            compile(code, filename, "exec")
+        if PYTHON.search(BLOCK.sub("", text)):
+            raise SystemExit(f"{feature.name} still contains an implementation")
+        print(f"{feature.name} is a guide")
+    for showcase in sorted((root / "docs/plan").glob("example-*.md")):
+        if PYTHON.search(showcase.read_text()):
+            raise SystemExit(f"{showcase.name} still contains a reference program")
+    print("Feature guides have expectations, unit tests, and acceptance criteria")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit as exc:
+        if exc.code not in (0, None):
+            print(exc, file=sys.stderr)
+        raise

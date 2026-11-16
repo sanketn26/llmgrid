@@ -1,6 +1,6 @@
-# Phase 7 example: one research workflow across five provider adapters
+# Example: one research workflow across five provider adapters
 
-[Example phase](phase-7-examples.md) · [All phases](../composable-agent-platform-plan.md)
+[Feature 15](../features/15-coding-release.md) · [Feature guide](../composable-agent-platform-plan.md)
 
 ## Goal and starting point
 
@@ -14,126 +14,24 @@ real model quality, latency, price, or current provider availability.
 
 | Action | Starting file / role |
 | --- | --- |
-| Reuse | Phase 2 adapters and Phase 4 grounded research workflow |
+| Reuse | Feature 04 adapters and the feature 09 grounded research workflow |
 | Add | `examples/implementation/showcase_providers.py`: application composition and offline fixtures |
 | Keep | Package dependency rules; cross-package wiring stays in this application |
 
 ## Implement this file
 
-### `examples/implementation/showcase_providers.py`
+Write the file named in the starting-point table so the checklist below passes. This guide does not include a reference implementation.
 
-```python
-import asyncio
-import json
-
-from showcase_research import ChargedRetriever
-
-from llmgrid.interfaces import Budget, RunContext
-from llmgrid.interfaces.loop import Completed, Stopped
-from llmgrid.interfaces.retrieval import Evidence
-from llmgrid.loops.grounded import GroundedAnswerStep
-from llmgrid.network.adapters import (
-    AnthropicModel,
-    BedrockModel,
-    GeminiModel,
-    OpenAICompatibleModel,
-    OpenAIModel,
-)
-from llmgrid.rag.memory import MemoryRetriever
-
-
-class FixtureTransport:
-    def __init__(self, response):
-        self.response, self.requests = response, []
-
-    async def send(self, body):
-        self.requests.append(body)
-        return self.response
-
-
-def fixtures(text):
-    return (
-        (
-            OpenAICompatibleModel,
-            {
-                "choices": [
-                    {"finish_reason": "stop", "message": {"role": "assistant", "content": text}}
-                ]
-            },
-        ),
-        (
-            OpenAIModel,
-            {
-                "status": "completed",
-                "output": [
-                    {
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "output_text", "text": text}],
-                    }
-                ],
-            },
-        ),
-        (AnthropicModel, {"stop_reason": "end_turn", "content": [{"type": "text", "text": text}]}),
-        (
-            GeminiModel,
-            {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": text}]}}]},
-        ),
-        (
-            BedrockModel,
-            {"stopReason": "end_turn", "output": {"message": {"content": [{"text": text}]}}},
-        ),
-    )
-
-
-async def main():
-    print("Adapter | outcome | model calls | retrieval calls")
-    for citation in ("launch", "invented"):
-        text = json.dumps({"text": "Use a staged rollout.", "citations": [citation]})
-        for adapter_type, raw in fixtures(text):
-            transport = FixtureTransport(raw)
-            model = adapter_type("offline-fixture-model", transport)
-            retriever = ChargedRetriever(
-                MemoryRetriever(
-                    (
-                        Evidence(
-                            "launch",
-                            "Atlas launch requires a staged rollout.",
-                        ),
-                    )
-                )
-            )
-            context = RunContext(adapter_type.__name__ + citation, Budget(1, 1))
-            result = await GroundedAnswerStep(retriever, model).run("Atlas launch", context=context)
-            if citation == "launch":
-                assert isinstance(result, Completed)
-                assert result.value.text == "Use a staged rollout."
-            else:
-                assert isinstance(result, Stopped) and result.reason == "claimed_unverified"
-            assert len(transport.requests) == 1
-            assert "Atlas launch" in json.dumps(transport.requests[0])
-            assert context.budget.model_calls == 1 and context.budget.tool_calls == 1
-            print(f"{adapter_type.__name__} | {type(result).__name__} | 1 | 1")
-    print("All five adapters share the workflow and reject invented citations")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
 
 ## Run and inspect
 
-After applying the required phases and this file:
+After the features this showcase needs are in the packages:
 
 ```bash
 .venv/bin/python examples/implementation/showcase_providers.py
 ```
 
-The complete documented suite can be checked without modifying production packages:
-
-```bash
-.venv/bin/python tools/check_implementation_guide.py --through 7
-```
+The feature guide checker does not run this showcase. Run the command above and compare it with the checklist.
 
 The table has ten rows: five Completed fixture runs and five Stopped invalid-citation
 runs. Every row uses one model call and one retrieval call. The transport captures the
@@ -142,7 +40,7 @@ encoding.
 
 ## Extend to live use
 
-Construct adapters using Phase 2 client lifecycle wiring and credentials supplied
+Construct adapters using feature 04 client lifecycle wiring and credentials supplied
 outside source code. Run a fixed held-out dataset and record model identifiers,
 settings, verified success rate, latency, tokens when supplied, and failures. Set
 compatible options explicitly; provider defaults are not equivalent. Keep non-streaming

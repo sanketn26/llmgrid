@@ -6,7 +6,7 @@ from llmgrid.interfaces.errors import (
     InvalidArgumentsError,
     ModelStoppedError,
 )
-from llmgrid.interfaces.execution import Budget, RunContext, Step
+from llmgrid.interfaces.execution import Budget, Counters, Limits, RunContext, Step
 from llmgrid.interfaces.model import (
     ChatModel,
     ChatRequest,
@@ -24,8 +24,10 @@ __all__ = [
     "ChatRequest",
     "ChatResponse",
     "ContractError",
+    "Counters",
     "FinishReason",
     "InvalidArgumentsError",
+    "Limits",
     "Message",
     "ModelCapabilities",
     "ModelStoppedError",

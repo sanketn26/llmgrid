@@ -35,6 +35,7 @@ mypy_path = [
   "packages/rag/src",
   "packages/loops/src",
   "examples/tool_agent",
+  "examples/implementation",
 ]
 explicit_package_bases = true
 files = ["packages", "tests", "examples"]

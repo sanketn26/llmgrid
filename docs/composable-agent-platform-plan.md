@@ -1,47 +1,43 @@
-# Phased Python implementation guide
+# Feature implementation guide
 
-Start at Phase 0 with no assumed setup or repository knowledge. It identifies the
-pre-existing code, creates the environment, and runs the baseline. Then follow the phases in order. Each phase gives the target file, its types and method
-bodies, a runnable offline example, and the checks needed before moving on.
-Adjust signatures and implementations together as you build.
+Build one end-to-end feature at a time. Each feature guide says what the feature
+expects, gives the unit test that locks that behavior, and states the acceptance
+criteria. It does not include a reference implementation. The packages still
+contain the prototype. Writing the files named in the guide is the work.
 
-The code in these Markdown files is a proposed reference implementation. The actual
-packages still contain the existing prototype; writing this guide does not install
-its future APIs into the library.
+The task that uses this order is [task.md](task.md). The guides are in
+[features/](features/).
 
-| Phase | Build |
-| --- | --- |
-| [0](plan/phase-0-baseline.md) | Set up from zero, inventory/reuse existing code, and run the baseline |
-| [1](plan/phase-1-contracts.md) | Nested budgets, context dispatch, model values, verification contracts |
-| [2](plan/phase-2-providers.md) | All five adapters, serializers, continuation state, and client lifecycles |
-| [3](plan/phase-3-tool-agent.md) | Verified tool agent, outcomes, stopping, recording, and replay |
-| [4](plan/phase-4-composition.md) | Retrieval, context, review, MCP, artifacts, experiments, critic, and tree search |
-| [4+](plan/phase-4-safety-patterns.md) | Addendum: guardrails, errands, planner, refiners, resampling, and routers |
-| [5](plan/phase-5-streaming.md) | Stream assembly, bounded parallel steps, and telemetry |
-| [6](plan/phase-6-recovery.md) | Approval, durable checkpoints, and uncertain-action recovery |
-| [7](plan/phase-7-examples.md) | Runnable showcases: coding, research, improvement, approval, providers, parallel work, and replay |
-| [8](plan/phase-8-release.md) | Verify the guide, run checks, and package the implementation |
+| Feature | What works when it is done | Check |
+| --- | --- | --- |
+| [00](features/00-baseline.md) | The current demo answers `2 + 3` | `make demo` and `make check` |
+| [01](features/01-budgeted-round.md) | One tool round charges each call once, and a child cannot spend a held slice | `test_nested_budget.py`, `test_single_charge.py` |
+| [02](features/02-verified-answer.md) | `2 + 3` is `Completed` with text `5`, and a false claim stops | `test_verified_agent.py` |
+| [03](features/03-replay.md) | Replay matches that outcome and does not run the tool again | `test_replay.py` |
+| [04](features/04-provider-roundtrip.md) | The same tool call round-trips through five offline adapters | `test_provider_roundtrip.py` |
+| [05](features/05-guardrail.md) | A denied tool is reported and not executed. An input denial charges nothing | `test_guardrails.py` |
+| [06](features/06-resample.md) | A rejected result is retried. A budget error is not | `test_resample.py` |
+| [07](features/07-refiner.md) | An unapproved draft is never returned | `test_refine.py` |
+| [08](features/08-route-and-errand.md) | A known label routes, an unknown label errors, a two-part errand recomposes | `test_route_errand.py` |
+| [09](features/09-grounded-answer.md) | An answer must cite stored evidence | `test_grounded.py` |
+| [10](features/10-context.md) | Compaction keeps the pinned system message and the newest turn | `test_context_window.py` |
+| [11](features/11-experiment.md) | A rejected review stops. Three rounds raise a score without writing `grader` | `test_review.py`, `test_experiment.py` |
+| [12](features/12-mcp-tool.md) | One allowed MCP tool runs against a fake session | `test_mcp_source.py` |
+| [13](features/13-parallel-stream.md) | Parallel results stay in order. One stream charges one model call | `test_parallel_stream.py` |
+| [14](features/14-approval.md) | An approved action is sent once. An uncertain send is not repeated | `test_approval.py` |
+| [15](features/15-coding-release.md) | The seeded `clamp` bug is fixed under an independent verifier | `test_coding_repair.py`, then `make check` |
 
-Design notes for these capabilities, and for self-improving agents (the user's ask as the
-invariant, the agent's policy as the variable), are in
+Design notes for guardrails, errands, and routers stay in
 [capabilities-guardrails-errands-routing.md](plan/capabilities-guardrails-errands-routing.md).
+Showcases in [plan/](plan/) repeat a finished feature as a goal and a checklist. They do not include a reference program.
 
 ## How to use it
 
-1. Complete Phase 0 with Python 3.12 or later. Use the current checkout or copy its
-   baseline into a new project directory using the provided script.
-2. Read each phase's “Starting point” table, then copy its file blocks into the stated
-   paths. “Keep” means reuse existing code; “Replace” means update a baseline file;
-   “Add” means create a new file. A later phase may replace an earlier file.
-3. Run the phase example before changing the implementation for your needs.
-4. Update existing callers/tests for each API migration and run the package checks.
-5. Update that phase's code and example when your implementation changes.
-
-Only protocol methods use `...`. Concrete method bodies are supplied. Small wiring
-snippets identify application-provided objects; they are separate from file blocks.
-Optional provider clients need their dependencies and credentials for live checks.
-
-You can verify the file blocks now, in a temporary checkout:
+1. Run feature 00. Python 3.12 or later. `make setup`, then `make check` and `make demo`.
+2. Read the feature's **Expects**, **Unit tests**, and **Acceptance**. Write the named files yourself.
+3. Do the next feature only after the acceptance criteria pass. A failed test is the next turn.
+4. Update the existing package tests named in the feature when a public type changes, then run `make check`.
+5. The guide checker confirms that every feature has those three sections, that features 01–15 each contain a unit-test block, that every Python fence in a feature guide is one of those tests, that the tests compile, and that showcase files contain no Python program. It does not implement a feature or run its tests.
 
 ```bash
 .venv/bin/python tools/check_implementation_guide.py
@@ -51,14 +47,14 @@ You can verify the file blocks now, in a temporary checkout:
 
 - `llmgrid.interfaces` uses only the standard library.
 - Other packages import interfaces and their own package, not sibling packages.
-- Application code creates clients/services and injects them into steps.
+- Application code creates clients and injects them into steps.
 - Leaf dispatch charges calls before execution and preserves cancellation.
-- Guardrail denials, routing failures, and exhausted resampling raise distinct errors; no fallback is implicit.
+- Guardrail denials, routing failures, and exhausted resampling raise distinct errors. Nothing falls back silently.
 - Completion, partial results, expected provider failures, and suspension stay distinct.
 
 ## Adjustments
 
-Keep changes beside the phase they affect. One short note is enough:
+Keep a change beside the feature it affects:
 
 ```markdown
 Adjustment: <changed API or implementation>
@@ -66,7 +62,6 @@ Reason: <one sentence>
 Affected files: <paths>
 ```
 
-The reference starts with call-count budgets and text/tool provider input. Hard token
-and cost limits, richer provider options, multimodal serialization, and the remaining
-native streaming assemblers need additional implementation and fixtures. These are
-explicit extensions, not capabilities claimed by the examples.
+Call-count budgets and text or tool input are in scope. Token and money limits,
+multimodal input, and streaming for the adapters other than Chat Completions are not,
+until a feature adds them and a test covers them.

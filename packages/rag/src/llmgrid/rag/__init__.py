@@ -1,3 +1,3 @@
-"""Retrieval-augmented generation for llmgrid. Not yet implemented (plan Phase 4)."""
+"""Retrieval-augmented generation for llmgrid. Not yet implemented (feature 09)."""
 
 __all__: list[str] = []

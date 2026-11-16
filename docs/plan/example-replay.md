@@ -1,6 +1,6 @@
-# Phase 7 example: record and replay a coding-agent failure
+# Example: record and replay a coding-agent failure
 
-[Example phase](phase-7-examples.md) · [All phases](../composable-agent-platform-plan.md)
+[Feature 15](../features/15-coding-release.md) · [Feature guide](../composable-agent-platform-plan.md)
 
 ## Goal and starting point
 
@@ -15,104 +15,24 @@ replay matching instead of quietly borrowing a response from a different run.
 
 | Action | Starting file / role |
 | --- | --- |
-| Reuse | Phase 3 model/tool recording and replay; Phase 7 coding fixture and independent tests |
+| Reuse | Feature 03 model and tool recording and replay; feature 15 coding fixture and independent tests |
 | Add | `examples/implementation/showcase_replay.py`: application composition and offline fixtures |
 | Keep | Package dependency rules; cross-package wiring stays in this application |
 
 ## Implement this file
 
-### `examples/implementation/showcase_replay.py`
+Write the file named in the starting-point table so the checklist below passes. This guide does not include a reference implementation.
 
-```python
-import asyncio
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
-from coding_support import Fixture, TestsPass, registry
-
-from llmgrid.interfaces import Budget, ChatResponse, Message, RunContext, ToolCall
-from llmgrid.interfaces.loop import Stopped
-from llmgrid.loops.recording import RecordingModel, RecordingTools, ReplayModel, ReplayTools
-from llmgrid.loops.tool_agent import ToolAgent
-from llmgrid.network.scripted import ScriptedModel
-
-
-class CountedFixture(Fixture):
-    evaluations = 0
-
-    async def test(self):
-        self.evaluations += 1
-        return await super().test()
-
-
-async def main():
-    with TemporaryDirectory() as tmp:
-        fixture = CountedFixture.create(Path(tmp))
-        tools = registry(fixture)
-        model = RecordingModel(
-            ScriptedModel(
-                [
-                    ChatResponse(
-                        Message("assistant", calls=(ToolCall("test-1", "run_tests", "{}"),)),
-                        "tool_calls",
-                    ),
-                    *[ChatResponse(Message("assistant", "Fixed; all tests pass."), "stop")] * 3,
-                ]
-            )
-        )
-        recorded_tools = RecordingTools(tools)
-        prompt = "Fix clamp below its lower bound."
-        original = await ToolAgent(model, recorded_tools, TestsPass(fixture)).run(
-            prompt,
-            context=RunContext("failure", Budget(4, 4)),
-        )
-        assert isinstance(original, Stopped) and original.reason == "no_progress"
-        assert fixture.evaluations == 4  # one tool test and three verifier tests
-        assert len(model.records) == 4 and len(recorded_tools.records) == 1
-        print("Recorded failure:", original.reason)
-        print("Tool output:", recorded_tools.records[0].result.content)
-        print("Model claims:", [r.response.message.text for r in model.records[1:]])
-
-        replay_model = ReplayModel(tuple(model.records), model.capabilities)
-        replay_tools = ReplayTools(tools.specs, tuple(recorded_tools.records))
-        repeated = await ToolAgent(replay_model, replay_tools, TestsPass(fixture)).run(
-            prompt,
-            context=RunContext("failure", Budget(4, 4)),
-        )
-        assert repeated == original
-        assert replay_model.index == 4 and replay_tools.index == 1
-        assert fixture.evaluations == 7  # only three independent verifier tests were rerun
-        print("Exact replay matched; recorded run_tests was not executed again")
-        try:
-            await ToolAgent(
-                ReplayModel(tuple(model.records), model.capabilities),
-                ReplayTools(tools.specs, tuple(recorded_tools.records)),
-                TestsPass(fixture),
-            ).run("A different issue", context=RunContext("changed", Budget(4, 4)))
-        except ValueError as exc:
-            assert "differs" in str(exc)
-            print("Changed prompt rejected:", exc)
-        else:
-            raise AssertionError("Replay accepted a changed request")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
 
 ## Run and inspect
 
-After applying the required phases and this file:
+After the features this showcase needs are in the packages:
 
 ```bash
 .venv/bin/python examples/implementation/showcase_replay.py
 ```
 
-The complete documented suite can be checked without modifying production packages:
-
-```bash
-.venv/bin/python tools/check_implementation_guide.py --through 7
-```
+The feature guide checker does not run this showcase. Run the command above and compare it with the checklist.
 
 The first run executes the evaluator four times. Replay consumes recorded model and
 tool records and executes only the three independent verifier evaluations: the total
@@ -122,8 +42,8 @@ produce the same answers.
 
 ## Extend to live use
 
-Keep capture opt-in and redact sensitive inputs before persistent storage. The Phase
-3 records are in-memory dataclasses; durable recordings need a versioned serializer,
+Keep capture opt-in and redact sensitive inputs before persistent storage. Feature
+03 records are in-memory dataclasses; durable recordings need a versioned serializer,
 model capabilities, and tool specifications. Preserve the exact normalized requests.
 For recorded writes, restore the candidate state explicitly before verification, since
 ReplayTools returns saved results without writing files. For nondeterministic verifiers,
