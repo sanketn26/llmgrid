@@ -12,4 +12,4 @@ Migration targets (see `docs/composable-agent-platform-plan.md`, Section 9):
 | `spec/models.py` | `ModelCapabilities` in interfaces; catalogue and lookup in `llmgrid.network` |
 | `tools.py`, `spec/tools.py` | One `ToolSpec` in interfaces; provider rendering in network serializers; `ArgSpec` only for prompted-tool instructions |
 
-Delete this directory once Phase 2 has absorbed it.
+Delete this directory once feature 04 has absorbed it.

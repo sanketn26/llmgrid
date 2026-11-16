@@ -18,5 +18,6 @@ class ModelStep:
         context.check()
         if value.tools and not self.model.capabilities.tool_calling:
             raise ContractError("Model does not support tool calling")
-        context.budget.consume("model")
-        return await context.invoke(partial(self.model.generate, value, context=context))
+        return await context.invoke(
+            partial(self.model.generate, value, context=context), kind="model"
+        )

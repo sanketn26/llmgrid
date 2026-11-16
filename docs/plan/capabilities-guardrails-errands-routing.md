@@ -1,12 +1,12 @@
 # Capabilities: guardrails, errands, resampling, routing, planners, and refiners
 
-[All phases](../composable-agent-platform-plan.md)
+[Feature guide](../composable-agent-platform-plan.md)
 
-This page is the overview and design notes. The code is in the
-[Phase 4 addendum](phase-4-safety-patterns.md) as a proposed reference implementation, like
-the other phases; the packages still contain the prototype. The runnable demo is
-[example-safe-router](example-safe-router.md), executed by the guide checker.
-Everything uses only `Step` and `RunContext`, so it carries over when Phase 1 replaces the
+This page is the overview and design notes. The code is in features
+[05](../features/05-guardrail.md) through [08](../features/08-route-and-errand.md).
+The packages still contain the prototype. [example-safe-router](example-safe-router.md)
+is a checklist for the finished composition, not a pasted program.
+Everything uses only `Step` and `RunContext`, so it carries over when feature 01 replaces the
 budget and context. No existing file is edited and no `__init__.py` changes, so import from
 the modules (for example `llmgrid.loops.guarded`).
 
@@ -19,7 +19,7 @@ the modules (for example `llmgrid.loops.guarded`).
 | Planner | none (uses `Step`) | `PlannerStep`, `ModelPlanner` |
 | Refiner, Doubting Refiner | `Verdict`, `ResamplingExhaustedError` | `RefineStep`, `ModelCritic`, `ModelReviser`, `Draft`, `Revision` |
 
-Verify the code and the example with `.venv/bin/python tools/check_implementation_guide.py`.
+`.venv/bin/python tools/check_implementation_guide.py` checks guide shape only. It does not run this page or `example-safe-router.md`.
 
 ## Guardrails
 
@@ -57,7 +57,7 @@ the plan size bounds the work. `ModelDecomposer` asks for a JSON array of string
 anything else. `ModelRecomposer` merges text results with one model call.
 
 Subtasks are independent and sequential. Dependencies between subtasks and parallel
-execution belong with Phase 5's bounded parallel steps; use `worker` as a `ToolAgent` to give
+execution belong with feature 13's bounded parallel steps; use `worker` as a `ToolAgent` to give
 each subtask tools.
 
 ## Resampling
@@ -125,8 +125,8 @@ repeat), bounded by `max_rounds` and the shared budget. Add guardrails with
 
 | Pattern | Why it waits |
 | --- | --- |
-| Memory | Belongs in `llmgrid-context` (history, compaction, artifacts in Phase 4). |
-| Interlocutor, Deferrer | Need pause-for-human and resume, which is Phase 6 (approval, checkpoints). |
+| Memory | Belongs in `llmgrid-context` (history, compaction, and artifacts in feature 10). |
+| Interlocutor, Deferrer | Need pause-for-human and resume, which is feature 14 (approval, checkpoints). |
 | Martingale | Definition not settled; as a doubling retry policy it would raise cost after each failure. |
 | Self-improvement, Refiner-Dreamer-Learner | Designed below, not built. They rewrite the agent's own policy, so they need a scorer outside the proposer's control and a held-out set of asks. |
 
@@ -189,8 +189,8 @@ itself; a person adopts it. Every round is charged to the shared budget.
 
 ### Status and first slice
 
-The workspace, snapshot, and journal contracts exist only as reference code in
-[Phase 4](phase-4-composition.md) (4E experiments, 4F tree), and
+The workspace, snapshot, and journal behavior is specified in
+[feature 11](../features/11-experiment.md), and
 [example-improvement](example-improvement.md) shows the loop on a scheduling problem. The
 first slice would hold the policy as an immutable value (no filesystem snapshots), with a
 linear loop, an in-memory journal, and the ask-digest check, using only `Step` and
@@ -216,8 +216,8 @@ router = RouterStep(classifier, {"simple": reliable, "complex": ErrandStep(plan,
 - `RefineStep` stops at a fixed round count; there is no convergence test beyond critic approval.
 - `ModelClassifier`, `ModelDecomposer`, `ModelPlanner`, and `ModelCritic` use plain-text replies, not structured output.
 
-Adjustment: added a Phase 4 addendum and a Phase 7 example guide for these capabilities.
-Reason: they depend only on `Step` and `RunContext`, which survive Phase 1.
-Affected files: `docs/plan/phase-4-safety-patterns.md`, `docs/plan/example-safe-router.md`; new files
+Adjustment: these capabilities are features 05 through 08, plus the safe-router showcase.
+Reason: they depend only on `Step` and `RunContext`, which survive feature 01.
+Affected files: `docs/features/05-guardrail.md` through `docs/features/08-route-and-errand.md`, `docs/plan/example-safe-router.md`; new files
 `packages/interfaces/src/llmgrid/interfaces/capabilities.py`,
 `packages/loops/src/llmgrid/loops/{guarded,errand,resample,router,planner,refine}.py`

@@ -64,10 +64,10 @@ class ToolAgent:
                 raise ContractError("Tool-call ID reused within this run")
             seen_ids.update(call.id for call in calls)
             for call in calls:
-                context.check()
-                context.budget.consume("tool")
                 # partial binds `call` now; a lambda would capture the loop variable.
-                result = await context.invoke(partial(self.tools.execute, call, context=context))
+                result = await context.invoke(
+                    partial(self.tools.execute, call, context=context), kind="tool"
+                )
                 if result.call_id != call.id:
                     raise ContractError("Tool result correlation mismatch")
                 messages.append(Message("tool", result=result))
